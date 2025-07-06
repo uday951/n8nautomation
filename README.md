@@ -2,7 +2,30 @@
 
 A Node.js application that automates posting to LinkedIn using Playwright with cookie-based authentication.
 
-## Setup
+## Quick Start with Docker
+
+### 1. Build and Run with Docker Compose (Recommended)
+```bash
+# Build and start the application
+docker-compose up --build -d
+
+# Check logs
+docker-compose logs -f
+
+# Stop the application
+docker-compose down
+```
+
+### 2. Manual Docker Commands
+```bash
+# Build the Docker image
+docker build -t linkedin-automation .
+
+# Run the container
+docker run -p 3000:3000 -v $(pwd)/cookies.json:/app/cookies.json linkedin-automation
+```
+
+## Setup (Local Development)
 
 1. **Install dependencies:**
    ```bash
@@ -48,6 +71,29 @@ A Node.js application that automates posting to LinkedIn using Playwright with c
 - `POST /post` - Create a LinkedIn post
   - Body: `{ "text": "post content" }`
 
+## Docker Deployment
+
+### Production Deployment
+```bash
+# Build the image
+docker build -t linkedin-automation .
+
+# Run with persistent cookies
+docker run -d \
+  --name linkedin-automation \
+  -p 3000:3000 \
+  -v $(pwd)/cookies.json:/app/cookies.json \
+  --restart unless-stopped \
+  linkedin-automation
+```
+
+### Environment Variables
+- `PORT` - Server port (default: 3000)
+- `NODE_ENV` - Environment (default: production)
+
+### Volume Mounts
+- `./cookies.json:/app/cookies.json` - Persist LinkedIn cookies
+
 ## Cookie Authentication
 
 This app uses cookie-based authentication instead of username/password:
@@ -60,9 +106,17 @@ This app uses cookie-based authentication instead of username/password:
 
 The app will try to use your system's Chrome browser first. If not found, it will attempt to use Playwright's Chromium.
 
-## Deployment
+## Troubleshooting
 
-The app is configured for deployment on platforms like Railway with the `Procfile`.
+### Docker Issues
+- **Build fails:** Ensure Docker has enough memory (4GB+ recommended)
+- **Chrome not found:** The Docker image includes all necessary dependencies
+- **Permission errors:** The container runs as non-root user
+
+### LinkedIn Issues
+- **Session expired:** Re-run `npm run save-cookies` to update cookies
+- **Button not found:** Check `linkedin-debug.png` for current UI state
+- **Rate limiting:** LinkedIn may block automated posting - use sparingly
 
 ## Security Notes
 

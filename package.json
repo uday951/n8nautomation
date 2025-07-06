@@ -9,6 +9,10 @@
     "start": "node index.js",
     "save-cookies": "node save-cookies.js",
     "debug": "node debug-linkedin.js",
+    "docker:build": "docker build -t linkedin-automation .",
+    "docker:run": "docker run -p 3000:3000 -v $(pwd)/cookies.json:/app/cookies.json linkedin-automation",
+    "docker:compose": "docker-compose up -d",
+    "docker:compose:build": "docker-compose up --build -d",
     "postinstall": "npx playwright install chromium"
   },
   "keywords": [],
