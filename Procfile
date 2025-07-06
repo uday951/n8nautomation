@@ -1,1 +1,1 @@
-worker: node post.js "🚀 Hello world from Railway"
+web: node index.js
