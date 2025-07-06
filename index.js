@@ -49,10 +49,12 @@ app.post('/post', async (req, res) => {
     console.log('✅ Logged in. Navigating to feed...');
     await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'networkidle' });
 
+    // Flexible selector check
     const shareSelectors = [
-      '.share-box-feed-entry__trigger',
+      'button.share-box-feed-entry__trigger',
       '[data-control-name="share.open"]',
-      'button[aria-label*="Start a post"]'
+      'button[aria-label*="Start a post"]',
+      '.share-box-feed-entry__trigger'
     ];
 
     let found = false;
@@ -65,7 +67,10 @@ app.post('/post', async (req, res) => {
       }
     }
 
-    if (!found) throw new Error('❌ Could not find Share button');
+    if (!found) {
+      await page.screenshot({ path: 'share_button_error.png', fullPage: true });
+      throw new Error('❌ Could not find Share button');
+    }
 
     console.log('✅ Post editor opened');
     await page.waitForSelector('.ql-editor', { timeout: 10000 });
@@ -82,7 +87,10 @@ app.post('/post', async (req, res) => {
       }
     }
 
-    if (!clicked) throw new Error('❌ Could not find Post/Share button');
+    if (!clicked) {
+      await page.screenshot({ path: 'post_button_error.png', fullPage: true });
+      throw new Error('❌ Could not find Post/Share button');
+    }
 
     console.log('✅ Post submitted');
     await page.waitForTimeout(5000);
