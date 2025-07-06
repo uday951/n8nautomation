@@ -14,7 +14,7 @@ app.post('/post', async (req, res) => {
 
   try {
     const browser = await puppeteer.launch({
-      headless: true,
+      headless: 'new', 
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
@@ -34,7 +34,8 @@ app.post('/post', async (req, res) => {
     await page.type('.ql-editor', postText);
     await page.waitForTimeout(1000);
 
-    const [postBtn] = await page.$x("//button[contains(text(), 'Post')]");
+    await page.waitForXPath("//button[contains(text(), 'Post')]", { timeout: 10000 });
+const [postBtn] = await page.$x("//button[contains(text(), 'Post')]");
     if (postBtn) {
       await postBtn.click();
       console.log("✅ Post published successfully!");
