@@ -30,7 +30,7 @@ app.post('/post', async (req, res) => {
   let browser;
   try {
     browser = await puppeteer.launch({
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      executablePath: await puppeteer.executablePath(),
       headless: 'new',
       args: [
         '--no-sandbox', 
