@@ -1,8 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { chromium } = require('playwright-core'); 
-
+const { chromium } = require('playwright');
 
 const app = express();
 const PORT = process.env.PORT || 3000;

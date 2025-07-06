@@ -12,6 +12,6 @@
     "cors": "^2.8.5",
     "dotenv": "^17.0.1",
     "express": "^5.1.0",
-    "playwright-core": "^1.53.2"
+    "playwright": "^1.53.2"
   }
 }
