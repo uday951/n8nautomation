@@ -15,9 +15,17 @@ fi
 echo "📦 Installing dependencies..."
 npm ci --only=production
 
-# Install Playwright browsers
+# Install Playwright browsers (crucial for automation)
 echo "🌐 Installing Playwright browsers..."
-npx playwright install chromium --with-deps
+npx playwright install chromium
+
+# Verify browser installation
+echo "🔍 Verifying browser installation..."
+if [ -d "/home/appuser/.cache/ms-playwright" ] || [ -d "$HOME/.cache/ms-playwright" ]; then
+    echo "✅ Playwright browsers installed successfully"
+else
+    echo "⚠️  Browser installation may have failed, but continuing..."
+fi
 
 # Start the application
 echo "🚀 Starting LinkedIn automation server..."

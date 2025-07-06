@@ -23,14 +23,15 @@ COPY package*.json ./
 # Install Node dependencies
 RUN npm ci --only=production
 
-# Install Playwright and Chromium dependencies
-RUN npx playwright install --with-deps
+# Install Playwright browsers (this is crucial!)
+RUN npx playwright install chromium
 
 # Copy the rest of the application code
 COPY . .
 
 # Create non-root user for safer execution
 RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app
 USER appuser
 
 # Expose app port
