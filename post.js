@@ -2,8 +2,14 @@ require('dotenv').config();
 const puppeteer = require('puppeteer');
 const express = require('express');
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// ✅ Health check route
+app.get('/', (req, res) => {
+  res.send("✅ Puppeteer Server is running!");
+});
 
 app.post('/post', async (req, res) => {
   const postText = req.body.text;
@@ -14,19 +20,22 @@ app.post('/post', async (req, res) => {
 
   try {
     const browser = await puppeteer.launch({
-      headless: 'new', 
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: 'new', // ✅ This is crucial for Railway
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page = await browser.newPage();
-    await page.goto('https://www.linkedin.com/login');
+
+    // ✅ Login to LinkedIn
+    await page.goto('https://www.linkedin.com/login', { waitUntil: 'networkidle2' });
 
     await page.type('#username', process.env.LINKEDIN_EMAIL);
     await page.type('#password', process.env.LINKEDIN_PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForNavigation();
+    await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
-    await page.goto('https://www.linkedin.com/feed/');
+    // ✅ Post content
+    await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'networkidle2' });
     await page.waitForSelector('.share-box-feed-entry__trigger');
     await page.click('.share-box-feed-entry__trigger');
 
@@ -34,25 +43,21 @@ app.post('/post', async (req, res) => {
     await page.type('.ql-editor', postText);
     await page.waitForTimeout(1000);
 
-    await page.waitForXPath("//button[contains(text(), 'Post')]", { timeout: 10000 });
-const [postBtn] = await page.$x("//button[contains(text(), 'Post')]");
-    if (postBtn) {
-      await postBtn.click();
-      console.log("✅ Post published successfully!");
-    } else {
-      console.log("❌ Could not find Post button.");
+    const [postButton] = await page.$x("//button[contains(text(), 'Post')]");
+    if (postButton) {
+      await postButton.click();
+      await page.waitForTimeout(3000);
     }
 
-    await page.waitForTimeout(3000);
     await browser.close();
-
-    res.status(200).send({ success: true, message: "Post successful!" });
+    res.status(200).send({ success: true, message: '✅ Posted successfully!' });
 
   } catch (err) {
-    console.error("❌ Error:", err);
-    res.status(500).send({ error: "Failed to post" });
+    console.error('❌ Error in Puppeteer flow:', err.message);
+    res.status(500).send({ error: 'Failed to post to LinkedIn.' });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
