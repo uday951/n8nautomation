@@ -1,10 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const COOKIE_PATH = path.resolve(__dirname, 'cookies.json');
 
 app.use(cors());
 app.use(express.json());
@@ -15,89 +18,130 @@ app.get('/', (req, res) => {
 
 app.post('/post', async (req, res) => {
   const { text } = req.body;
-
   if (!text) return res.status(400).json({ error: '❌ Missing post text' });
-
-  if (!process.env.LINKEDIN_EMAIL || !process.env.LINKEDIN_PASSWORD) {
-    return res.status(500).json({ error: '❌ LinkedIn credentials not configured' });
-  }
-
   let browser;
-
   try {
-    browser = await chromium.launch({ headless: true });
+    // Use system Chrome if available
+    const chromePaths = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      process.env.CHROME_PATH
+    ].filter(Boolean);
+    let executablePath = null;
+    for (const p of chromePaths) {
+      if (fs.existsSync(p)) {
+        executablePath = p;
+        break;
+      }
+    }
+    browser = await chromium.launch({ headless: true, executablePath: executablePath || undefined });
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
     });
-
-    const page = await context.newPage();
-
-    console.log('🔐 Logging into LinkedIn...');
-    await page.goto('https://www.linkedin.com/login', { waitUntil: 'networkidle' });
-
-    await page.fill('#username', process.env.LINKEDIN_EMAIL);
-    await page.fill('#password', process.env.LINKEDIN_PASSWORD);
-    await Promise.all([
-      page.click('button[type="submit"]'),
-      page.waitForNavigation({ waitUntil: 'networkidle' })
-    ]);
-
-    if (await page.locator('#username').count() > 0) {
-      throw new Error('Login failed — check credentials');
+    if (fs.existsSync(COOKIE_PATH)) {
+      const cookies = JSON.parse(fs.readFileSync(COOKIE_PATH));
+      await context.addCookies(cookies);
     }
-
-    console.log('✅ Logged in. Navigating to feed...');
+    const page = await context.newPage();
+    console.log('🔐 Navigating to LinkedIn feed...');
     await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'networkidle' });
-
-    // Flexible selector check
-    const shareSelectors = [
-      'button.share-box-feed-entry__trigger',
-      '[data-control-name="share.open"]',
-      'button[aria-label*="Start a post"]',
-      '.share-box-feed-entry__trigger'
-    ];
-
-    let found = false;
-    for (const sel of shareSelectors) {
-      const btn = page.locator(sel);
-      if (await btn.count()) {
-        await btn.first().click();
-        found = true;
-        break;
+    if (page.url().includes('/login')) {
+      throw new Error('❌ Session expired or not authenticated. Please re-login and update cookies.');
+    }
+    await page.waitForTimeout(4000);
+    // Try to find and click any button that could be "Share"/"Post"
+    const possibleWords = ['post', 'share', 'start', 'create'];
+    let shareButtonFound = false;
+    let attempts = 0;
+    const buttons = await page.$$('button');
+    for (const btn of buttons) {
+      let text = '';
+      let aria = '';
+      try {
+        text = (await btn.innerText()).toLowerCase();
+      } catch {}
+      try {
+        aria = ((await btn.getAttribute('aria-label')) || '').toLowerCase();
+      } catch {}
+      if (possibleWords.some(w => text.includes(w) || aria.includes(w))) {
+        console.log(`🔍 Trying button: text="${text}", aria-label="${aria}"`);
+        try {
+          await btn.click({ timeout: 2000 });
+          shareButtonFound = true;
+          console.log('✅ Clicked a possible share/post button!');
+          break;
+        } catch (e) {
+          console.log(`⚠️  Failed to click: ${e.message}`);
+        }
+      }
+      attempts++;
+    }
+    // If not found, try again after a short wait (sometimes UI loads late)
+    if (!shareButtonFound) {
+      console.log('⏳ Retrying after wait...');
+      await page.waitForTimeout(4000);
+      const buttons2 = await page.$$('button');
+      for (const btn of buttons2) {
+        let text = '';
+        let aria = '';
+        try {
+          text = (await btn.innerText()).toLowerCase();
+        } catch {}
+        try {
+          aria = ((await btn.getAttribute('aria-label')) || '').toLowerCase();
+        } catch {}
+        if (possibleWords.some(w => text.includes(w) || aria.includes(w))) {
+          console.log(`🔍 Retrying button: text="${text}", aria-label="${aria}"`);
+          try {
+            await btn.click({ timeout: 2000 });
+            shareButtonFound = true;
+            console.log('✅ Clicked a possible share/post button (retry)!');
+            break;
+          } catch (e) {
+            console.log(`⚠️  Retry failed to click: ${e.message}`);
+          }
+        }
       }
     }
-
-    if (!found) {
-      await page.screenshot({ path: 'share_button_error.png', fullPage: true });
-      throw new Error('❌ Could not find Share button');
+    if (!shareButtonFound) {
+      await page.screenshot({ path: 'linkedin-debug.png' });
+      throw new Error('❌ Could not find Share/Post button. Screenshot saved as linkedin-debug.png');
     }
-
-    console.log('✅ Post editor opened');
+    // Wait for editor and type post
     await page.waitForSelector('.ql-editor', { timeout: 10000 });
     await page.type('.ql-editor', text, { delay: 50 });
-
+    // Try to find and click any button that could be "Post"/"Share" in the editor
+    let postButtonClicked = false;
     const postButtons = await page.$$('button');
-    let clicked = false;
     for (const btn of postButtons) {
-      const label = await btn.innerText();
-      if (label.includes('Post') || label.includes('Share')) {
-        await btn.click();
-        clicked = true;
-        break;
+      let text = '';
+      let aria = '';
+      try {
+        text = (await btn.innerText()).toLowerCase();
+      } catch {}
+      try {
+        aria = ((await btn.getAttribute('aria-label')) || '').toLowerCase();
+      } catch {}
+      if (possibleWords.some(w => text.includes(w) || aria.includes(w))) {
+        console.log(`🔍 Trying post/share button: text="${text}", aria-label="${aria}"`);
+        try {
+          await btn.click({ timeout: 2000 });
+          postButtonClicked = true;
+          console.log('✅ Clicked a possible post/share button!');
+          break;
+        } catch (e) {
+          console.log(`⚠️  Failed to click post/share: ${e.message}`);
+        }
       }
     }
-
-    if (!clicked) {
-      await page.screenshot({ path: 'post_button_error.png', fullPage: true });
-      throw new Error('❌ Could not find Post/Share button');
+    if (!postButtonClicked) {
+      await page.screenshot({ path: 'linkedin-debug-post.png' });
+      throw new Error('❌ Could not find Post/Share button in editor. Screenshot saved as linkedin-debug-post.png');
     }
-
     console.log('✅ Post submitted');
     await page.waitForTimeout(5000);
     await browser.close();
-
     return res.status(200).json({ success: true, message: '✅ Successfully posted to LinkedIn!' });
-
   } catch (err) {
     console.error('❌ Automation failed:', err.message);
     if (browser) await browser.close();

@@ -1,6 +1,6 @@
 # LinkedIn Post Creator
 
-A Node.js application that automates posting to LinkedIn using Puppeteer.
+A Node.js application that automates posting to LinkedIn using Playwright with cookie-based authentication.
 
 ## Setup
 
@@ -9,17 +9,15 @@ A Node.js application that automates posting to LinkedIn using Puppeteer.
    npm install
    ```
 
-2. **Create environment variables:**
-   Create a `.env` file with:
-   ```
-   LINKEDIN_EMAIL=your_linkedin_email@example.com
-   LINKEDIN_PASSWORD=your_linkedin_password
-   PORT=3000
-   ```
-
-3. **Install Chrome for Puppeteer:**
+2. **Save LinkedIn cookies (one-time setup):**
    ```bash
-   npx puppeteer browsers install chrome
+   npm run save-cookies
+   ```
+   This will open a browser window where you can login to LinkedIn manually. The cookies will be saved for future use.
+
+3. **Optional: Set Chrome path (if Chrome is not in standard location):**
+   ```
+   CHROME_PATH=C:\path\to\your\chrome.exe
    ```
 
 ## Usage
@@ -50,12 +48,25 @@ A Node.js application that automates posting to LinkedIn using Puppeteer.
 - `POST /post` - Create a LinkedIn post
   - Body: `{ "text": "post content" }`
 
+## Cookie Authentication
+
+This app uses cookie-based authentication instead of username/password:
+
+1. **First time setup:** Run `npm run save-cookies` and login manually
+2. **Cookies are saved** to `cookies.json` for future use
+3. **Session expires:** If you get "Session expired" errors, re-run the save-cookies script
+
+## Browser Requirements
+
+The app will try to use your system's Chrome browser first. If not found, it will attempt to use Playwright's Chromium.
+
 ## Deployment
 
 The app is configured for deployment on platforms like Railway with the `Procfile`.
 
 ## Security Notes
 
-- Store LinkedIn credentials securely
-- Consider using 2FA-compatible authentication
-- Monitor for LinkedIn's anti-automation measures 
+- Cookies are stored locally in `cookies.json`
+- No password storage required
+- Monitor for LinkedIn's anti-automation measures
+- Consider using 2FA-compatible authentication 
